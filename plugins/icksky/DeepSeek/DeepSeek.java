@@ -9,22 +9,38 @@ import java.util.Map;
 
 import me.hd.wauxv.plugin.api.callback.PluginCallBack;
 
+// 推理模型
+final String MODEL_REASONER = "deepseek-reasoner";
+// 聊天模型
+final String MODEL_CHAT = "deepseek-chat";
+
 // 按用户ID存储对话历史
 Map msgListMap = new HashMap();
 // DeepSeek API密钥
 String deepseekApiKey = "sk-你的密钥";
 // 私聊触发关键词（可留空，空数组时允许所有私聊）
 String[] privateTriggerWords = {}; // 关键词触发，如不填则无限制{"你好","在吗"}
-// **新增：来源ID排除列表（精确匹配，支持私聊/群聊用户ID）**
-String[] excludedIds = {}; // 填写需要排除的用户ID
 // 违禁词列表（不区分大小写，包含即拦截）
 String[] forbiddenWords = {}; // 可自定义违禁词
-
-final String MODEL_REASONER = "deepseek-reasoner";  // 推理模型
-final String MODEL_CHAT = "deepseek-chat";        // 聊天模型
-String currentModel = MODEL_CHAT;             // 默认聊天模型
+// 按用户ID存储的模型
+Map modelMap = new HashMap();
 // 可配置最大对话记录数
 int MAX_HISTORY_LENGTH = 100;
+// 安全等级权限定义（位掩码模式）
+public abstract class SecurityPermissions {
+    // 权限位掩码（显式赋值，避免位运算解析问题）
+    public static final int BASE_LONG_PRESS = 1;  // 0b0001
+    public static final int ROLE_SETTING = 2;     // 0b0010
+    public static final int MODEL_SWITCH = 4;     // 0b0100
+    public static final int CONVERSATION_RESET = 8; // 0b1000
+
+    // 安全等级组合（直接计算值）
+    public static final int LEVEL_STANDARD = BASE_LONG_PRESS | ROLE_SETTING;
+    public static final int LEVEL_FULL = Integer.MAX_VALUE; // 0x7FFFFFFF（最大整型值）
+}
+
+// 针对用户发送指令的安全等级设置
+int SECURITY_LEVEL = SecurityPermissions.LEVEL_FULL;
 
 // 添加系统角色消息到历史记录（替换旧系统消息）
 void addSystemMsg(String talkerId, String content) {
@@ -40,7 +56,7 @@ void addSystemMsg(String talkerId, String content) {
         if ("system".equals(msg.get("role"))) {
             // 替换已有的系统消息
             msg.put("content", content);
-            log("更新了角色设定" + talkerId);
+            toast("更新了角色设定");
             systemMsgFound = true;
             break;
         }
@@ -52,7 +68,7 @@ void addSystemMsg(String talkerId, String content) {
         systemMsg.put("role", "system");
         systemMsg.put("content", content);
         userMsgList.add(systemMsg);
-        log("初始化角色设定: " + talkerId);
+        toast("初始化角色设定");
     }
 }
 
@@ -96,7 +112,7 @@ void addAssistantMsg(String talkerId, String content) {
 Map getDeepSeekParam(String talkerId, String content) {
     List userMsgList = msgListMap.get(talkerId);
     Map paramMap = new HashMap();
-    paramMap.put("model", currentModel); // 指定模型
+    paramMap.put("model", modelMap.getOrDefault(talkerId, MODEL_CHAT)); // 指定模型(默认聊天模型)
     addUserMsg(talkerId, content); // 将用户输入加入历史
     paramMap.put("messages", userMsgList); // 完整对话历史
     paramMap.put("temperature", 0.7); // 响应随机性控制
@@ -155,47 +171,103 @@ void cleanupInactiveSessions(String talkerId) {
     msgListMap.remove(talkerId);
 }
 
-boolean onLongClickSendBtn(String text) {
-    String talkerId = getTargetTalker();
-    if (text.equals("切换模型")) {
-        currentModel = (currentModel.equals(MODEL_REASONER)) ? MODEL_CHAT : MODEL_REASONER;
-        return true; // 消耗事件，确保模型切换生效
-    }
-
-    if (text.equals("当前模型")) {
-        sendText(talkerId, currentModel);
-        return true;
-    }
-
-    if (text.startsWith("角色设定: ")) {
-        addSystemMsg(talkerId, text.replace("角色设定: ", ""));
-        return true;
-    }
-
-    if (text.equals("重置")) {
-        cleanupInactiveSessions(talkerId);
-        return true;
-    }
-
-    return false;
+boolean checkPermission(int requiredPermission) {
+    return (SECURITY_LEVEL & requiredPermission) != 0;
 }
 
-// 消息处理主入口
-void onHandleMsg(Object msgInfoBean) {
-    // **新增：来源ID排除判断（优先级最高，所有消息先过滤）**
-    String talkerId = msgInfoBean.getTalker(); // 获取消息来源ID（需根据框架实际API调整，此处假设talker为用户ID）
+void showMessage(String talkerId, String text, boolean isSelf) {
+    isSelf ? toast(text) : sendText(talkerId, text);
+}
+
+boolean onHandleCommand(String text, String talkerId, boolean isSelf) {
+    if (!isSelf && !checkPermission(SecurityPermissions.BASE_LONG_PRESS)) {
+        return false;
+    }
+
+    final String MODEL_SWITCH = "切换模型";
+
+    if (text.startsWith("角色设定：") && (isSelf || checkPermission(SecurityPermissions.ROLE_SETTING))) {
+        addSystemMsg(talkerId, text.replace("角色设定：", ""));
+        showMessage(talkerId, "角色设定成功", isSelf);
+        return true;
+    }
 
     // 未设定角色直接跳过
     if (msgListMap.get(talkerId) == null) {
         return;
     }
 
+    if (!isSelf && !checkPermission(SecurityPermissions.LEVEL_STANDARD)) {
+        return false;
+    }
+
+    String currentModel = modelMap.getOrDefault(talkerId, MODEL_CHAT);
+    if (text.startsWith(MODEL_SWITCH) && (isSelf || checkPermission(SecurityPermissions.MODEL_SWITCH))) {
+        if (text.equals(MODEL_SWITCH)) {
+            currentModel = currentModel.equals(MODEL_REASONER) ? MODEL_CHAT : MODEL_REASONER;
+            modelMap.put(talkerId, currentModel); // 更新用户模型
+        } else {
+            // 预留新模型设置
+            // 去除前缀冒号+空格
+            String newModel = text.substring(MODEL_SWITCH.length()).replaceFirst("^:", "").trim();
+            if (!newModel.isEmpty()) {
+                modelMap.put(talkerId, newModel); // 更新用户模型
+                currentModel = newModel;
+            }
+        }
+
+        showMessage(talkerId, currentModel, isSelf);
+        return true;
+    }
+
+    if (text.equals("当前模型")) {
+        showMessage(talkerId, currentModel, isSelf);
+        return true;
+    }
+
+    if (text.equals("重置") && (isSelf || checkPermission(SecurityPermissions.CONVERSATION_RESET))) {
+        cleanupInactiveSessions(talkerId);
+        showMessage(talkerId, "已重置", isSelf);
+        return true;
+    }
+
+    return false;
+}
+
+boolean onLongClickSendBtn(String text) {
+    return onHandleCommand(text, getTargetTalker(), true);
+}
+
+// 消息处理主入口
+void onHandleMsg(Object msgInfoBean) {
+    // **新增：来源ID排除判断（优先级最高，所有消息先过滤）**
+    String talkerId = msgInfoBean.getTalker(); // 获取消息来源ID（需根据框架实际API调整，此处假设talker为用户ID）
+    String content = msgInfoBean.getContent();
+
     // 忽略自己发送的消息
     if (msgInfoBean.isSend()) {
         return;
     }
 
-    String content = msgInfoBean.getContent();
+    if (msgInfoBean.isAtMe()) {
+        // 使用通用正则表达式移除所有 @提及
+        content = content
+            .replaceAll("@[^\\s\\u2005]+\\s*", "") // 移除 @提及及后续空格
+            .replaceAll("^\\s+|\\s+$", "")
+            .replaceAll("\\s+", " ");
+    }
+
+    // 处理消息指令(排除自身发送的消息, 避免死循环)
+    if (msgInfoBean.isText()) {
+        if (onHandleCommand(content, talkerId, false)) {
+            return;
+        }
+    }
+
+    // 未设定角色直接跳过
+    if (msgListMap.get(talkerId) == null) {
+        return;
+    }
 
     // 群聊消息处理
     if (msgInfoBean.isGroupChat()) {
@@ -203,21 +275,12 @@ void onHandleMsg(Object msgInfoBean) {
             return;
         }
 
-        String talker = msgInfoBean.getTalker(); // 群聊中talker为群成员ID
-
-        // 使用通用正则表达式移除所有 @提及
-        String processedContent = content
-            .replaceAll("(^|\\s+)@[^\\s\\u2005]+", "") // 匹配并移除 @+任意非空字符
-            .replaceAll("^\\s+|\\s+$", "")             // 去除首尾空格
-            .replaceAll("\\s+", " ");                  // 合并中间多个空格为一个
-
-        sendDeepSeekResp(talker, processedContent);
+        sendDeepSeekResp(talkerId, content);
     }
     // 私聊消息处理（含违禁词+关键词判断）
     else {
         if (msgInfoBean.isText()) {
             String userContent = content.trim().toLowerCase(); // 转小写统一校验
-            String talker = msgInfoBean.getTalker(); // 私聊中talker为对方用户ID
 
             // 第一步：违禁词判断
             if (hasForbiddenWord(userContent)) {
@@ -241,7 +304,7 @@ void onHandleMsg(Object msgInfoBean) {
                 return;
             }
 
-            sendDeepSeekResp(talker, userContent);
+            sendDeepSeekResp(talkerId, content);
         }
     }
 }
@@ -254,4 +317,8 @@ boolean hasForbiddenWord(String content) {
         }
     }
     return false;
+}
+
+static {
+    log("DeepSeek 初始化");
 }

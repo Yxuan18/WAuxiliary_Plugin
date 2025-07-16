@@ -1,7 +1,7 @@
 # 联系方法
 
 ::: warning 警告
-本文档适用于 WAuxiliary v1.2.3.r722.c2ba115 版本
+本文档适用于 WAuxiliary v1.2.4 版本
 :::
 
 ## 取当前登录Wxid
@@ -34,6 +34,14 @@ List getFriendList();
 String getFriendName(String friendWxid);
 
 String getFriendName(String friendWxid, String roomId);
+```
+
+## 取头像链接
+
+```java
+void getAvatarUrl(String username);
+
+void getAvatarUrl(String username, boolean isBigHeadImg);
 ```
 
 ## 取群聊列表

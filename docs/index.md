@@ -2,7 +2,7 @@
 layout: home
 
 hero:
-  name: "WAuxiliary Plugins"
+  name: "WAuxiliary Plugin"
   text: "WAuxiliary 插件"
 
 features:
@@ -62,6 +62,14 @@ features:
     details: 监听收到好友申请时自动通过
     link: https://github.com/HdShare/WAuxiliary_Plugin/tree/main/plugins/hd/AutoAgreeFriend
 
+  - title: 摸头@hd
+    details: 命令[/rua]引用他人消息, 即可生成摸头GIF并发送
+    link: https://github.com/HdShare/WAuxiliary_Plugin/tree/main/plugins/hd/Avatar-rua
+
+  - title: 语录@hd
+    details: 命令[/q]引用他人消息, 即可生成语录图并发送
+    link: https://github.com/HdShare/WAuxiliary_Plugin/tree/main/plugins/hd/msg-q/
+
   - title: 文生图@CkBcDD
     details: 命令[/作图 Corn Hub], 长按发送按钮生成并发送图片
     link: https://github.com/HdShare/WAuxiliary_Plugin/tree/main/plugins/CkBcDD/TXT-to-IMG
@@ -90,15 +98,22 @@ features:
     details: 监听收到[系统表情1+系统表情2]时自动合成新表情并发送(使用emojik.vercel.app)
     link: https://github.com/HdShare/WAuxiliary_Plugin/tree/main/plugins/Kyo/EmojiKitchen
 
-  - title: Http主动发送@CK
+  - title: Http主动发送@icksky
     details: 通过 http 请求主动发送消息 `curl -X POST 'http://0.0.0.0:13333' --data '{"ids":["wxid1","wxid2"],"msg":"HelloWorld"}' --location`
-    link: https://github.com/HdShare/WAuxiliary_Plugin/tree/main/plugins/CK/HttpSend
+    link: https://github.com/HdShare/WAuxiliary_Plugin/tree/main/plugins/icksky/HttpSend
 
-  - title: DeepSeek多角色智能体@CK
-    details: "监听收到消息时通过DeepSeek AI自动聊天(需修改密钥)，不同的群和好友可设置不同的角色。选定对应对话框输入“角色设定: 你是一个逗逼”(不含引号)，长按发送按钮即可设定，重复设定可更新角色"
-    link: https://github.com/HdShare/WAuxiliary_Plugin/tree/main/plugins/CK/DeepSeek
+  - title: DeepSeek多角色智能体@icksky
+    details: 监听收到消息时通过DeepSeek AI自动聊天(需修改密钥)，不同的群和好友可设置不同的角色。选定对应对话框输入“角色设定：你是一个逗逼”(不含引号)，长按发送按钮即可设定，重复设定可更新角色
+    link: https://github.com/HdShare/WAuxiliary_Plugin/tree/main/plugins/icksky/DeepSeek
 
   - title: 抖音视频解析下载@coderpwh
-    details: "监听消息，或者长按发送按钮，解析抖音视频链接并下载发送"
+    details: 监听消息，或者长按发送按钮，解析抖音视频(图文)链接并下载发送
     link: https://github.com/HdShare/WAuxiliary_Plugin/tree/main/plugins/coderpwh/douyin
----
+
+  - title: 微信自动管理@C3604
+    details: 自动添加好友，自动拉群，群管
+    link: https://github.com/HdShare/WAuxiliary_Plugin/tree/main/plugins/C3604/WeChatAutoManager
+
+  - title: AiChatbot@Aden
+    details: 群聊艾特回复，私聊检测Bot回复，输入重置长按发送可清空记忆
+    link: https://github.com/HdShare/WAuxiliary_Plugin/tree/main/plugins/Aden/AiChatbot
